@@ -1681,33 +1681,21 @@ static uint32_t getblocheight(struct stratum_ctx *sctx)
 
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
-	char algo[64] = { 0 };
 	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
-	const char *extradata = NULL;
+	const char *claim = NULL;
 	size_t coinb1_size, coinb2_size;
 	bool clean, ret = false;
 	int merkle_count, i, p=0;
-	bool has_claim, has_roots;
+	bool has_claim = json_array_size(params) == 10; // todo: use opt_algo
 	json_t *merkle_arr;
 	uchar **merkle;
-
-	get_currentalgo(algo, sizeof(algo));
-	has_claim = strcmp(algo, "lbry") == 0 && json_array_size(params) == 10;
-	has_roots = strcmp(algo, "phi2") == 0 && json_array_size(params) == 10;
 
 	job_id = json_string_value(json_array_get(params, p++));
 	prevhash = json_string_value(json_array_get(params, p++));
 	if (has_claim) {
-		extradata = json_string_value(json_array_get(params, p++));
-		if (!extradata || strlen(extradata) != 64) {
+		claim = json_string_value(json_array_get(params, p++));
+		if (!claim || strlen(claim) != 64) {
 			applog(LOG_ERR, "Stratum notify: invalid claim parameter");
-			goto out;
-		}
-	}
-	else if (has_roots) {
-		extradata = json_string_value(json_array_get(params, p++));
-		if (!extradata || strlen(extradata) != 128) {
-			applog(LOG_ERR, "Stratum notify: invalid UTXO root parameter");
 			goto out;
 		}
 	}
@@ -1760,8 +1748,7 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	sctx->job.job_id = strdup(job_id);
 	hex2bin(sctx->job.prevhash, prevhash, 32);
 
-	if (has_claim) hex2bin(sctx->job.extra, extradata, 32);
-	if (has_roots) hex2bin(sctx->job.extra, extradata, 64);
+	if (has_claim) hex2bin(sctx->job.claim, claim, 32);
 
 	sctx->bloc_height = getblocheight(sctx);
 
